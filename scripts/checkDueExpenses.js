@@ -23,7 +23,6 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
 }
 
 // O AI Studio usa o banco nomeado "ai-studio-sistemadedespesa-bd0127a4-2025-42fa-ad78-0d0f3c31d3c3"
-// Se não encontrar ou der erro, usa a instância padrão (default)
 const databaseId = process.env.FIRESTORE_DATABASE_ID || 'ai-studio-sistemadedespesa-bd0127a4-2025-42fa-ad78-0d0f3c31d3c3';
 
 let db;
@@ -59,11 +58,21 @@ function addDays(dateStr, days) {
   return `${y}-${m}-${dd}`;
 }
 
-async function fetchWithFallback() {
+function formatBRL(amount) {
+  const val = typeof amount === 'number' && !isNaN(amount) ? amount : 0;
+  return `R$ ${val.toFixed(2).replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.')}`;
+}
+
+function getDaysDiff(dateStr, todayStr) {
+  const target = new Date(dateStr + 'T12:00:00').getTime();
+  const today = new Date(todayStr + 'T12:00:00').getTime();
+  return Math.round((target - today) / (1000 * 60 * 60 * 24));
+}
+
+async function fetchUsersWithFallback() {
   try {
     return await db.collection('users').get();
   } catch (err) {
-    // Se o banco nomeado não existir na conta de serviço, tenta o banco (default)
     console.warn(`[checkDueExpenses] Aviso no banco "${databaseId}": ${err.message}. Tentando banco (default)...`);
     const defaultDb = admin.firestore();
     db = defaultDb;
@@ -73,10 +82,9 @@ async function fetchWithFallback() {
 
 async function main() {
   const todayStr = getLocalTodayStr();
-  const tomorrowStr = addDays(todayStr, 1);
 
   console.log(`[checkDueExpenses] Conectando ao Firestore (banco: ${databaseId})...`);
-  const usersSnap = await fetchWithFallback();
+  const usersSnap = await fetchUsersWithFallback();
   console.log(`[checkDueExpenses] Verificando ${usersSnap.size} usuário(s) em ${todayStr}...`);
 
   for (const userDoc of usersSnap.docs) {
@@ -85,40 +93,109 @@ async function main() {
     const tokens = userData.fcmTokens || [];
     if (!tokens || tokens.length === 0) continue;
 
+    // 1. Busca os membros para saber de quem é a conta dividida
+    const membersMap = new Map();
+    try {
+      const membersSnap = await db.collection('members').where('userId', '==', userId).get();
+      membersSnap.docs.forEach((doc) => {
+        const m = doc.data();
+        membersMap.set(doc.id, m.name || 'Membro');
+      });
+    } catch (mErr) {
+      console.warn(`[checkDueExpenses] Não foi possível carregar membros para ${userId}:`, mErr.message);
+    }
+
+    // 2. Busca todas as despesas não pagas do usuário
     const expensesSnap = await db
       .collection('expenses')
       .where('userId', '==', userId)
       .where('isPaid', '==', false)
       .get();
 
+    const overdueLines = [];
+    const upcomingLines = [];
     let overdueCount = 0;
-    let dueSoonCount = 0;
-    const detailLines = [];
+    let upcomingCount = 0;
 
     expensesSnap.docs.forEach((doc) => {
       const exp = doc.data();
       if (exp.recurringActive === false) return;
+      if (!exp.dueDate) return;
 
-      if (exp.dueDate < todayStr) {
+      const diffDays = getDaysDiff(exp.dueDate, todayStr);
+
+      // Considera atrasada se diffDays < 0
+      // Considera vencendo em breve se diffDays entre 0 e 3 (hoje, amanhã ou até 3 dias)
+      if (diffDays > 3) return;
+
+      // Descobre de quem é a conta
+      let ownerName = 'Pessoal (Você)';
+      if (exp.type === 'third_party') {
+        if (exp.responsibleMemberId === 'all') {
+          ownerName = 'Todos (Dividido)';
+        } else if (exp.responsibleMemberId && membersMap.has(exp.responsibleMemberId)) {
+          ownerName = membersMap.get(exp.responsibleMemberId);
+        } else {
+          ownerName = 'Terceiros';
+        }
+      }
+
+      // Detalhe de parcelamento / tipo
+      let parcelText = '';
+      if (exp.isInstallments) {
+        const curr = exp.currentInstallment || 1;
+        const total = exp.installmentsCount || '?';
+        parcelText = ` [Parc. ${curr}/${total}]`;
+      } else if (exp.isRecurring) {
+        parcelText = ' [Recorrente]';
+      } else {
+        parcelText = ' [À vista]';
+      }
+
+      const formattedVal = formatBRL(exp.amount);
+
+      if (diffDays < 0) {
         overdueCount++;
-        detailLines.push(`⚠️ ${exp.description} — atrasada`);
-      } else if (exp.dueDate === todayStr) {
-        dueSoonCount++;
-        detailLines.push(`🔔 ${exp.description} — vence hoje`);
-      } else if (exp.dueDate === tomorrowStr) {
-        dueSoonCount++;
-        detailLines.push(`🔔 ${exp.description} — vence amanhã`);
+        const daysPast = Math.abs(diffDays);
+        const dueText = daysPast === 1 ? 'Venceu ONTEM!' : `Venceu há ${daysPast} dias!`;
+        overdueLines.push(`• ⚠️ ${exp.description} : ${formattedVal} - ${ownerName}${parcelText} [${dueText}]`);
+      } else {
+        upcomingCount++;
+        let dueText = '';
+        if (diffDays === 0) {
+          dueText = 'Vence HOJE!';
+        } else if (diffDays === 1) {
+          dueText = 'Vence AMANHÃ!';
+        } else {
+          dueText = `Vence em ${diffDays} dias`;
+        }
+        upcomingLines.push(`• 🔔 ${exp.description} : ${formattedVal} - ${ownerName}${parcelText} [${dueText}]`);
       }
     });
 
-    if (overdueCount === 0 && dueSoonCount === 0) continue;
+    if (overdueCount === 0 && upcomingCount === 0) continue;
 
-    const title =
-      overdueCount > 0
-        ? `⚠️ ${overdueCount} despesa(s) vencida(s)`
-        : `🔔 ${dueSoonCount} despesa(s) vencendo`;
+    // Monta o título do Push
+    let title = '';
+    if (overdueCount > 0) {
+      title = `⚠️ Alerta: ${overdueCount} Conta(s) Vencida(s)! 🔔`;
+    } else {
+      title = `Contas Vencendo em Breve! 🔔`;
+    }
 
-    const body = detailLines.slice(0, 3).join('\n') + (detailLines.length > 3 ? '\n...' : '');
+    // Monta o corpo da mensagem com seções organizadas
+    const bodySections = [];
+    if (overdueCount > 0) {
+      bodySections.push(`⚠️ CONTAS VENCIDAS:\n` + overdueLines.join('\n'));
+    }
+    if (upcomingCount > 0) {
+      bodySections.push(`🔔 VENCENDO EM BREVE:\n` + upcomingLines.join('\n'));
+    }
+
+    let body = bodySections.join('\n\n');
+    if (body.length > 900) {
+      body = body.substring(0, 897) + '...';
+    }
 
     try {
       const response = await messaging.sendEachForMulticast({
