@@ -10,10 +10,22 @@
 
 const admin = require('firebase-admin');
 
-// A credencial vem de uma variável de ambiente (GOOGLE_APPLICATION_CREDENTIALS)
-admin.initializeApp({
-  credential: admin.credential.applicationDefault()
-});
+// Inicializa usando o JSON direto da variável de ambiente ou o padrão do sistema
+if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+  try {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+  } catch (e) {
+    console.error('Erro ao fazer parse de FIREBASE_SERVICE_ACCOUNT_JSON:', e.message);
+    process.exit(1);
+  }
+} else {
+  admin.initializeApp({
+    credential: admin.credential.applicationDefault()
+  });
+}
 
 const db = admin.firestore();
 const messaging = admin.messaging();
@@ -124,7 +136,7 @@ async function main() {
     }
   }
 
-  console.log('[checkDueExpenses] Concluído.');
+  console.log('[checkDueExpenses] Concluído com sucesso!');
 }
 
 main()
