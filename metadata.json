@@ -1,0 +1,8 @@
+{
+  "name": "SERVIÇO SECRETO FINANÇAS",
+  "description": "Sistema de gestão de despesas financeiras, relatórios mensais e controle de gastos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

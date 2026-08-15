@@ -1,0 +1,119 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common Helpers
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && (
+        request.auth.token.email_verified == true || 
+        request.auth.token.firebase.sign_in_provider == 'google.com'
+      );
+    }
+
+    // Expense Entity Helpers
+    function isValidExpense(data) {
+      return data.keys().hasAll(['description', 'category', 'amount', 'transactionDate', 'dueDate', 'type', 'userId', 'isPaid']) &&
+             data.keys().size() <= 20 &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 100 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             data.amount is number &&
+             data.transactionDate is string && data.transactionDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+             data.dueDate is string && data.dueDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+             data.type is string && (data.type == 'personal' || data.type == 'third_party') &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.isPaid is bool;
+    }
+
+    // Member Entity Helpers
+    function isValidMember(data) {
+      return data.keys().hasAll(['name', 'userId', 'shareToken']) &&
+             data.keys().size() <= 6 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.shareToken is string && data.shareToken.size() <= 128;
+    }
+
+    // Budget Entity Helpers
+    function isValidBudget(data) {
+      return data.keys().hasAll(['category', 'amount', 'month', 'userId']) &&
+             data.keys().size() <= 6 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             data.amount is number &&
+             data.month is string && data.month.matches('^[0-9]{4}-[0-9]{2}$') &&
+             data.userId is string && data.userId.size() <= 128;
+    }
+
+    // Rules for Expenses
+    match /expenses/{expenseId} {
+      allow get: if (isSignedIn() && resource.data.userId == request.auth.uid) || 
+                    (resource.data.memberShareToken != null);
+      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || 
+                     (resource.data.memberShareToken != null);
+      
+      allow create: if isEmailVerified() && 
+                       isValidId(expenseId) && 
+                       isValidExpense(request.resource.data) && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow update: if isEmailVerified() && 
+                       isValidId(expenseId) && 
+                       isValidExpense(request.resource.data) && 
+                       resource.data.userId == request.auth.uid && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow delete: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+    }
+
+    // Rules for Members
+    match /members/{memberId} {
+      allow read: if true;
+                     
+      allow create: if isEmailVerified() && 
+                       isValidId(memberId) && 
+                       isValidMember(request.resource.data) && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow update: if isEmailVerified() && 
+                       isValidId(memberId) && 
+                       isValidMember(request.resource.data) && 
+                       resource.data.userId == request.auth.uid && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow delete: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+    }
+
+    // Rules for Budgets
+    match /budgets/{budgetId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isEmailVerified() && 
+                       isValidId(budgetId) && 
+                       isValidBudget(request.resource.data) && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow update: if isEmailVerified() && 
+                       isValidId(budgetId) && 
+                       isValidBudget(request.resource.data) && 
+                       resource.data.userId == request.auth.uid && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow delete: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+    }
+  }
+}

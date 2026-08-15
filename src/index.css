@@ -1,0 +1,205 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #f8fafc;
+  color: #1e293b;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* --- DARK THEME OVERRIDES --- */
+.dark body {
+  background-color: #0b0f19 !important; /* Elegant dark navy blue background */
+  color: #f8fafc !important; /* Clean light slate text */
+}
+
+/* Input Fields and Selects in Dark Mode */
+.dark select,
+.dark input[type="text"],
+.dark input[type="number"],
+.dark input[type="date"],
+.dark input[type="email"],
+.dark input[type="password"],
+.dark textarea {
+  background-color: #1e293b !important; /* Dark Slate background */
+  color: #f8fafc !important; /* Light text */
+  border-color: #334155 !important; /* Border slate 700 */
+}
+
+.dark select option {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+.dark select::placeholder,
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #64748b !important; /* Muted placeholder slate 500 */
+}
+
+/* Background class replacements */
+.dark .bg-white {
+  background-color: #131b2e !important; /* Soft deep dark blue for cards and containers */
+}
+
+.dark .bg-slate-50 {
+  background-color: #0b0f19 !important; /* Outer container match background */
+}
+
+.dark .bg-slate-100 {
+  background-color: #1e293b !important; /* Medium dark slate */
+}
+
+.dark .bg-slate-200 {
+  background-color: #334155 !important; /* Muted dark slate */
+}
+
+/* Badge and specific alert box backgrounds in dark mode */
+.dark .bg-indigo-50 {
+  background-color: #1e1b4b !important; /* Dark indigo 950 */
+}
+
+.dark .bg-emerald-50 {
+  background-color: #022c22 !important; /* Dark emerald 950 */
+}
+
+.dark .bg-amber-50 {
+  background-color: #451a03 !important; /* Dark amber 950 */
+}
+
+.dark .bg-rose-50 {
+  background-color: #4c0519 !important; /* Dark rose 950 */
+}
+
+.dark .bg-amber-100 {
+  background-color: #78350f !important; /* Darker amber accent */
+}
+
+.dark .bg-emerald-100 {
+  background-color: #064e3b !important; /* Darker emerald accent */
+}
+
+.dark .bg-rose-100 {
+  background-color: #881337 !important; /* Darker rose accent */
+}
+
+/* Hover effects */
+.dark .hover\:bg-slate-50:hover {
+  background-color: #1e293b !important;
+}
+
+.dark .hover\:bg-slate-100:hover {
+  background-color: #1e293b !important;
+}
+
+.dark .hover\:bg-slate-50\/50:hover {
+  background-color: rgba(30, 41, 59, 0.5) !important;
+}
+
+/* Text Color class replacements */
+.dark .text-slate-900 {
+  color: #f8fafc !important; /* Bright white/slate 50 */
+}
+
+.dark .text-slate-800 {
+  color: #f1f5f9 !important; /* Slate 100 */
+}
+
+.dark .text-slate-700 {
+  color: #e2e8f0 !important; /* Slate 200 */
+}
+
+.dark .text-slate-600 {
+  color: #cbd5e1 !important; /* Slate 300 */
+}
+
+.dark .text-slate-500 {
+  color: #94a3b8 !important; /* Slate 400 */
+}
+
+.dark .text-slate-400 {
+  color: #64748b !important; /* Slate 500 */
+}
+
+/* Specific text color tweaks for badges/indicators in dark mode */
+.dark .text-indigo-600, .dark .text-indigo-700 {
+  color: #818cf8 !important; /* Indigo 400 */
+}
+
+.dark .text-indigo-900 {
+  color: #e0e7ff !important; /* Indigo 100 */
+}
+
+.dark .text-emerald-600, .dark .text-emerald-700, .dark .text-emerald-800 {
+  color: #34d399 !important; /* Emerald 400 */
+}
+
+.dark .text-emerald-950 {
+  color: #d1fae5 !important; /* Emerald 100 */
+}
+
+.dark .text-amber-600, .dark .text-amber-700, .dark .text-amber-800 {
+  color: #fbbf24 !important; /* Amber 400 */
+}
+
+.dark .text-amber-950 {
+  color: #fef3c7 !important; /* Amber 100 */
+}
+
+.dark .text-rose-600, .dark .text-rose-700, .dark .text-rose-800, .dark .text-red-600, .dark .text-red-700 {
+  color: #f87171 !important; /* Rose/Red 400 */
+}
+
+.dark .text-rose-950 {
+  color: #ffe4e6 !important; /* Rose 100 */
+}
+
+/* Border class replacements */
+.dark .border-slate-100 {
+  border-color: #1e293b !important; /* Slate 800 */
+}
+
+.dark .border-slate-200 {
+  border-color: #334155 !important; /* Slate 700 */
+}
+
+.dark .border-slate-300 {
+  border-color: #475569 !important; /* Slate 600 */
+}
+
+.dark .divide-slate-100 > * + * {
+  border-color: #1e293b !important;
+}
+
+.dark .divide-slate-200 > * + * {
+  border-color: #334155 !important;
+}
+
+/* Modal and backdrop overloads */
+.dark .bg-black\/50,
+.dark .bg-black\/40,
+.dark .bg-slate-900\/50,
+.dark .bg-slate-900\/40 {
+  background-color: rgba(0, 0, 0, 0.75) !important;
+}
+
+/* Recharts / SVG Dark Mode support */
+.dark svg text {
+  fill: #94a3b8 !important;
+}
+

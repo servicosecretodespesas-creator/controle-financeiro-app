@@ -1,0 +1,33 @@
+name: Verificação Diária de Despesas Vencidas
+
+on:
+  schedule:
+    # 08:00 no horário de Brasília (UTC-3) = 11:00 UTC
+    - cron: '0 11 * * *'
+  # Permite disparar manualmente pela aba "Actions" do GitHub
+  workflow_dispatch:
+
+jobs:
+  check-expenses:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Baixar o código do repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar dependências
+        working-directory: scripts
+        run: npm install
+
+      - name: Recriar arquivo de credenciais a partir do Secret
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > $RUNNER_TEMP/service-account.json
+
+      - name: Rodar verificação e enviar notificações
+        working-directory: scripts
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/service-account.json
+        run: node checkDueExpenses.js

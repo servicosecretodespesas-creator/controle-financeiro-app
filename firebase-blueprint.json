@@ -1,0 +1,395 @@
+{
+  "entities": {
+    "expense": {
+      "title": "Expense",
+      "description": "An expense item, either personal or third-party",
+      "type": "object",
+      "properties": {
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "amount": {
+          "type": "number"
+        },
+        "transactionDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "dueDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["personal", "third_party"]
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "responsibleMemberId": {
+          "type": "string"
+        },
+        "isInstallments": {
+          "type": "boolean"
+        },
+        "installmentsCount": {
+          "type": "number"
+        },
+        "currentInstallment": {
+          "type": "number"
+        },
+        "installmentGroupId": {
+          "type": "string"
+        },
+        "isRecurring": {
+          "type": "boolean"
+        },
+        "recurrenceFrequency": {
+          "type": "string"
+        },
+        "isPaid": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["description", "category", "amount", "transactionDate", "dueDate", "type", "userId", "isPaid"]
+    },
+    "member": {
+      "title": "Member",
+      "description": "A group/team member involved in splitting expenses",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "shareToken": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "userId", "shareToken"]
+    },
+    "budget": {
+      "title": "Budget",
+      "description": "A monthly budget per category",
+      "type": "object",
+      "properties": {
+        "category": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "amount": {
+          "type": "number"
+        },
+        "month": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}$"
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": ["category", "amount", "month", "userId"]
+    },
+    "category": {
+      "title": "Category",
+      "description": "Custom category created by user",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "userId"]
+    },
+    "pixConfig": {
+      "title": "PixConfig",
+      "description": "User's Pix receiving configurations",
+      "type": "object",
+      "properties": {
+        "ownerName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "keyType": {
+          "type": "string"
+        },
+        "keyValue": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "bankName": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["ownerName", "keyType", "keyValue", "userId"]
+    },
+    "incomeSource": {
+      "title": "IncomeSource",
+      "description": "An active paying source of income (motor de capital)",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "employer": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "baseValue": {
+          "type": "number"
+        },
+        "startDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "endDate": {
+          "type": "string"
+        },
+        "transmissionRule": {
+          "type": "string",
+          "enum": ["5th_working_day", "last_day", "specific_day"]
+        },
+        "specificDay": {
+          "type": "number"
+        },
+        "isSplit": {
+          "type": "boolean"
+        },
+        "splitPercentage": {
+          "type": "number"
+        },
+        "splitDay": {
+          "type": "number"
+        },
+        "finalDay": {
+          "type": "number"
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "isArchived": {
+          "type": "boolean"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["name", "baseValue", "startDate", "transmissionRule", "isSplit", "userId", "isArchived"]
+    },
+    "incomeOccurrence": {
+      "title": "IncomeOccurrence",
+      "description": "An individual projected or realized monthly occurrence of an income source",
+      "type": "object",
+      "properties": {
+        "incomeSourceId": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "expectedDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "baseAmount": {
+          "type": "number"
+        },
+        "isReceived": {
+          "type": "boolean"
+        },
+        "receivedAmount": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "isVale": {
+          "type": "boolean"
+        },
+        "month": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}$"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["incomeSourceId", "userId", "description", "expectedDate", "baseAmount", "isReceived", "receivedAmount", "isVale", "month"]
+    },
+    "financingContract": {
+      "title": "FinancingContract",
+      "description": "A real estate or asset financing contract tracked by the user",
+      "type": "object",
+      "properties": {
+        "propertyName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 150
+        },
+        "totalValue": {
+          "type": "number"
+        },
+        "financedAmount": {
+          "type": "number"
+        },
+        "totalInstallments": {
+          "type": "number"
+        },
+        "startDate": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "amortizationSystem": {
+          "type": "string",
+          "enum": ["SAC", "PRICE"]
+        },
+        "interestRateAnnum": {
+          "type": "number"
+        },
+        "monthlyInsurance": {
+          "type": "number"
+        },
+        "hasKeysHandover": {
+          "type": "boolean"
+        },
+        "keysHandoverDate": {
+          "type": "string"
+        },
+        "userId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["propertyName", "totalValue", "financedAmount", "totalInstallments", "startDate", "amortizationSystem", "interestRateAnnum", "monthlyInsurance", "hasKeysHandover", "userId"]
+    },
+    "userNotificationSettings": {
+      "title": "UserNotificationSettings",
+      "description": "User preferences for alert and notification channels",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "emailEnabled": {
+          "type": "boolean"
+        },
+        "daysBeforeDue": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "string"
+        }
+      },
+      "required": ["email", "emailEnabled", "daysBeforeDue"]
+    }
+  },
+  "firestore": {
+    "/expenses/{expenseId}": {
+      "schema": "expense",
+      "description": "Collection of all expenses (personal and third party) for users"
+    },
+    "/members/{memberId}": {
+      "schema": "member",
+      "description": "Collection of team members created by users"
+    },
+    "/budgets/{budgetId}": {
+      "schema": "budget",
+      "description": "Collection of category budgets for users"
+    },
+    "/categories/{categoryId}": {
+      "schema": "category",
+      "description": "Collection of custom categories for users"
+    },
+    "/pix_configs/{configId}": {
+      "schema": "pixConfig",
+      "description": "Collection of Pix configurations for users"
+    },
+    "/income_sources/{sourceId}": {
+      "schema": "incomeSource",
+      "description": "Collection of capital and income sources"
+    },
+    "/income_occurrences/{occurrenceId}": {
+      "schema": "incomeOccurrence",
+      "description": "Collection of projected/actual occurrences of income"
+    },
+    "/financing_contracts/{contractId}": {
+      "schema": "financingContract",
+      "description": "Collection of real estate financing contracts for users"
+    },
+    "/user_notification_settings/{userId}": {
+      "schema": "userNotificationSettings",
+      "description": "Collection of notification preferences per user"
+    }
+  }
+}

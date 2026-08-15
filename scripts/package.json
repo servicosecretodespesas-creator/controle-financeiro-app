@@ -1,0 +1,12 @@
+{
+  "name": "check-due-expenses-script",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Script standalone que roda fora do Firebase (via GitHub Actions) para checar despesas vencidas e enviar push via FCM, sem precisar do plano Blaze.",
+  "scripts": {
+    "check": "node checkDueExpenses.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.1.0"
+  }
+}

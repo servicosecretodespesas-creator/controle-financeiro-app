@@ -1,0 +1,285 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common Helpers
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Auth helpers - Check if user is logged in
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Email verification check (allowing standard Google login or verified emails)
+    function isEmailVerified() {
+      return isSignedIn();
+    }
+
+    // Expense Entity Helpers
+    function isValidExpense(data) {
+      return data.keys().hasAll(['description', 'category', 'amount', 'type', 'userId', 'isPaid']) &&
+             data.keys().size() <= 45 &&
+             data.description is string && data.description.size() <= 200 &&
+             data.category is string && data.category.size() <= 100 &&
+             data.amount is number &&
+             data.type is string && (data.type == 'personal' || data.type == 'third_party') &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.isPaid is bool;
+    }
+
+    // Member Entity Helpers
+    function isValidMember(data) {
+      return data.keys().hasAll(['name', 'userId', 'shareToken']) &&
+             data.keys().size() <= 15 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.shareToken is string && data.shareToken.size() <= 128;
+    }
+
+    // Budget Entity Helpers
+    function isValidBudget(data) {
+      return data.keys().hasAll(['category', 'amount', 'month', 'userId']) &&
+             data.keys().size() <= 15 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 100 &&
+             data.amount is number &&
+             data.month is string && data.month.matches('^[0-9]{4}-[0-9]{2}$') &&
+             data.userId is string && data.userId.size() <= 128;
+    }
+
+    // Category Entity Helpers
+    function isValidCategory(data) {
+      return data.keys().hasAll(['name', 'userId']) &&
+             data.keys().size() <= 10 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.userId is string && data.userId.size() <= 128;
+    }
+
+    // PixConfig Entity Helpers
+    function isValidPixConfig(data) {
+      return data.keys().hasAll(['ownerName', 'keyType', 'keyValue', 'userId']) &&
+             data.keys().size() <= 10 &&
+             data.ownerName is string && data.ownerName.size() >= 1 && data.ownerName.size() <= 150 &&
+             data.keyType is string && data.keyType.size() >= 1 && data.keyType.size() <= 50 &&
+             data.keyValue is string && data.keyValue.size() >= 1 && data.keyValue.size() <= 100 &&
+             data.userId is string && data.userId.size() <= 128;
+    }
+
+    // IncomeSource Entity Helpers
+    function isValidIncomeSource(data) {
+      return data.keys().hasAll(['name', 'baseValue', 'startDate', 'transmissionRule', 'isSplit', 'userId', 'isArchived']) &&
+             data.keys().size() <= 45 &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             data.baseValue is number &&
+             (!('netValue' in data) || data.netValue == null || data.netValue is number) &&
+             data.startDate is string && data.startDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+             data.transmissionRule is string && (data.transmissionRule == '5th_working_day' || data.transmissionRule == 'last_day' || data.transmissionRule == 'specific_day') &&
+             data.isSplit is bool &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.isArchived is bool;
+    }
+
+    // IncomeOccurrence Entity Helpers
+    function isValidIncomeOccurrence(data) {
+      return data.keys().hasAll(['incomeSourceId', 'userId', 'description', 'expectedDate', 'baseAmount', 'isReceived', 'receivedAmount', 'isVale', 'month']) &&
+             data.keys().size() <= 25 &&
+             data.incomeSourceId is string && data.incomeSourceId.size() <= 128 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.description is string && data.description.size() >= 1 && data.description.size() <= 150 &&
+             data.expectedDate is string && data.expectedDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+             data.baseAmount is number &&
+             data.isReceived is bool &&
+             data.receivedAmount is number &&
+             data.isVale is bool &&
+             data.month is string && data.month.matches('^[0-9]{4}-[0-9]{2}$');
+    }
+
+    // Rules for Expenses
+    match /expenses/{expenseId} {
+      allow read: if true;
+      
+      allow create: if isSignedIn() && 
+                       isValidId(expenseId) && 
+                       isValidExpense(request.resource.data);
+                        
+      allow update: if isSignedIn() && 
+                       isValidId(expenseId) && 
+                       isValidExpense(request.resource.data);
+                        
+      allow delete: if isSignedIn();
+    }
+
+    // Rules for Members
+    match /members/{memberId} {
+      allow read: if true;
+                     
+      allow create: if isEmailVerified() && 
+                       isValidId(memberId) && 
+                       isValidMember(request.resource.data) && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow update: if isEmailVerified() && 
+                       isValidId(memberId) && 
+                       isValidMember(request.resource.data) && 
+                       resource.data.userId == request.auth.uid && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow delete: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+    }
+
+    // Rules for Budgets
+    // Rules for Users
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isSignedIn() && request.auth.uid == userId;
+    }
+
+    match /budgets/{budgetId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isEmailVerified() && 
+                       isValidId(budgetId) && 
+                       isValidBudget(request.resource.data) && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow update: if isEmailVerified() && 
+                       isValidId(budgetId) && 
+                       isValidBudget(request.resource.data) && 
+                       resource.data.userId == request.auth.uid && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow delete: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+    }
+
+    // Rules for Custom Categories
+    match /categories/{categoryId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isEmailVerified() && 
+                       isValidId(categoryId) && 
+                       isValidCategory(request.resource.data) && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow update: if isEmailVerified() && 
+                       isValidId(categoryId) && 
+                       isValidCategory(request.resource.data) && 
+                       resource.data.userId == request.auth.uid && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow delete: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+    }
+
+    // Rules for Pix Configurations
+    match /pix_configs/{configId} {
+      allow get, list: if true; // anyone can fetch owner's pix details to pay
+      
+      allow create: if isEmailVerified() && 
+                       isValidId(configId) && 
+                       isValidPixConfig(request.resource.data) && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow update: if isEmailVerified() && 
+                       isValidId(configId) && 
+                       isValidPixConfig(request.resource.data) && 
+                       resource.data.userId == request.auth.uid && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow delete: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+    }
+
+    // Rules for Income Sources
+    match /income_sources/{sourceId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isEmailVerified() && 
+                       isValidId(sourceId) && 
+                       isValidIncomeSource(request.resource.data) && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow update: if isEmailVerified() && 
+                       isValidId(sourceId) && 
+                       isValidIncomeSource(request.resource.data) && 
+                       resource.data.userId == request.auth.uid && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow delete: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+    }
+
+    // Rules for Income Occurrences
+    // FinancingContract Entity Helpers
+    function isValidFinancingContract(data) {
+      return data.keys().hasAll(['propertyName', 'totalValue', 'financedAmount', 'totalInstallments', 'startDate', 'amortizationSystem', 'interestRateAnnum', 'monthlyInsurance', 'hasKeysHandover', 'userId']) &&
+             data.propertyName is string && data.propertyName.size() >= 1 && data.propertyName.size() <= 150 &&
+             data.totalValue is number &&
+             data.financedAmount is number &&
+             data.totalInstallments is number &&
+             data.startDate is string && data.startDate.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+             data.amortizationSystem is string && (data.amortizationSystem == 'SAC' || data.amortizationSystem == 'PRICE') &&
+             data.interestRateAnnum is number &&
+             data.monthlyInsurance is number &&
+             data.hasKeysHandover is bool &&
+             data.userId is string && data.userId.size() <= 128;
+    }
+
+    // Rules for Financing Contracts
+    match /financing_contracts/{contractId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isEmailVerified() && 
+                        isValidId(contractId) && 
+                        isValidFinancingContract(request.resource.data) && 
+                        request.resource.data.userId == request.auth.uid;
+                        
+      allow update: if isEmailVerified() && 
+                        isValidId(contractId) && 
+                        resource.data.userId == request.auth.uid && 
+                        request.resource.data.userId == request.auth.uid;
+                        
+      allow delete: if isSignedIn() && 
+                        resource.data.userId == request.auth.uid;
+    }
+
+    match /income_occurrences/{occurrenceId} {
+      allow get, list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      allow create: if isEmailVerified() && 
+                       isValidId(occurrenceId) && 
+                       isValidIncomeOccurrence(request.resource.data) && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow update: if isEmailVerified() && 
+                       isValidId(occurrenceId) && 
+                       isValidIncomeOccurrence(request.resource.data) && 
+                       resource.data.userId == request.auth.uid && 
+                       request.resource.data.userId == request.auth.uid;
+                       
+      allow delete: if isSignedIn() && 
+                       resource.data.userId == request.auth.uid;
+    }
+
+    // UserNotificationSettings Entity Helpers
+    function isValidUserNotificationSettings(data) {
+      return data.keys().hasAll(['email', 'emailEnabled', 'daysBeforeDue']) &&
+             data.keys().size() <= 6 &&
+             data.email is string && data.email.size() <= 150 &&
+             data.emailEnabled is bool &&
+             data.daysBeforeDue is number;
+    }
+
+    // Rules for User Notification Settings
+    match /user_notification_settings/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+  }
+}
