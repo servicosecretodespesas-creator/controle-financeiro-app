@@ -1,12 +1,7 @@
 // scripts/checkDueExpenses.js
 //
-// Script standalone (NÃO é uma Cloud Function) que:
-//  1. Se conecta ao Firestore usando uma Service Account (não precisa de Blaze)
-//  2. Verifica despesas vencidas / vencendo hoje / vencendo amanhã de cada usuário
-//  3. Envia push via FCM (Admin SDK) para os tokens salvos em users/{uid}.fcmTokens
-//
-// Roda localmente (`node scripts/checkDueExpenses.js`) ou via GitHub Actions,
-// que dispara este script todo dia no horário agendado. 100% gratuito.
+// Script standalone que roda via GitHub Actions para checar despesas vencidas
+// e enviar push via FCM com o Firebase Admin SDK (100% gratuito, sem Blaze).
 
 const admin = require('firebase-admin');
 
@@ -27,7 +22,18 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
   });
 }
 
-const db = admin.firestore();
+// O AI Studio usa o banco nomeado "ai-studio-sistemadedespesa-bd0127a4-2025-42fa-ad78-0d0f3c31d3c3"
+// Se não encontrar ou der erro, usa a instância padrão (default)
+const databaseId = process.env.FIRESTORE_DATABASE_ID || 'ai-studio-sistemadedespesa-bd0127a4-2025-42fa-ad78-0d0f3c31d3c3';
+
+let db;
+try {
+  const { getFirestore } = require('firebase-admin/firestore');
+  db = getFirestore(admin.app(), databaseId);
+} catch {
+  db = admin.firestore();
+}
+
 const messaging = admin.messaging();
 
 function getLocalTodayStr() {
@@ -53,17 +59,31 @@ function addDays(dateStr, days) {
   return `${y}-${m}-${dd}`;
 }
 
+async function fetchWithFallback() {
+  try {
+    return await db.collection('users').get();
+  } catch (err) {
+    // Se o banco nomeado não existir na conta de serviço, tenta o banco (default)
+    console.warn(`[checkDueExpenses] Aviso no banco "${databaseId}": ${err.message}. Tentando banco (default)...`);
+    const defaultDb = admin.firestore();
+    db = defaultDb;
+    return await defaultDb.collection('users').get();
+  }
+}
+
 async function main() {
   const todayStr = getLocalTodayStr();
   const tomorrowStr = addDays(todayStr, 1);
 
-  const usersSnap = await db.collection('users').get();
+  console.log(`[checkDueExpenses] Conectando ao Firestore (banco: ${databaseId})...`);
+  const usersSnap = await fetchWithFallback();
   console.log(`[checkDueExpenses] Verificando ${usersSnap.size} usuário(s) em ${todayStr}...`);
 
   for (const userDoc of usersSnap.docs) {
     const userId = userDoc.id;
-    const tokens = userDoc.data().fcmTokens || [];
-    if (tokens.length === 0) continue;
+    const userData = userDoc.data() || {};
+    const tokens = userData.fcmTokens || [];
+    if (!tokens || tokens.length === 0) continue;
 
     const expensesSnap = await db
       .collection('expenses')
@@ -100,39 +120,43 @@ async function main() {
 
     const body = detailLines.slice(0, 3).join('\n') + (detailLines.length > 3 ? '\n...' : '');
 
-    const response = await messaging.sendEachForMulticast({
-      tokens,
-      notification: { title, body },
-      webpush: {
-        fcmOptions: { link: '/' },
-        notification: {
-          icon: '/icon.svg',
-          badge: '/icon.svg',
-          requireInteraction: true
+    try {
+      const response = await messaging.sendEachForMulticast({
+        tokens,
+        notification: { title, body },
+        webpush: {
+          fcmOptions: { link: '/' },
+          notification: {
+            icon: '/icon.svg',
+            badge: '/icon.svg',
+            requireInteraction: true
+          }
         }
-      }
-    });
-
-    console.log(
-      `[checkDueExpenses] Usuário ${userId}: ${response.successCount} enviada(s), ${response.failureCount} falha(s).`
-    );
-
-    // Remove tokens inválidos/expirados
-    const invalidTokens = [];
-    response.responses.forEach((r, idx) => {
-      if (
-        !r.success &&
-        (r.error?.code === 'messaging/registration-token-not-registered' ||
-          r.error?.code === 'messaging/invalid-registration-token')
-      ) {
-        invalidTokens.push(tokens[idx]);
-      }
-    });
-
-    if (invalidTokens.length > 0) {
-      await userDoc.ref.update({
-        fcmTokens: tokens.filter((t) => !invalidTokens.includes(t))
       });
+
+      console.log(
+        `[checkDueExpenses] Usuário ${userId}: ${response.successCount} enviada(s), ${response.failureCount} falha(s).`
+      );
+
+      // Remove tokens inválidos/expirados
+      const invalidTokens = [];
+      response.responses.forEach((r, idx) => {
+        if (
+          !r.success &&
+          (r.error?.code === 'messaging/registration-token-not-registered' ||
+            r.error?.code === 'messaging/invalid-registration-token')
+        ) {
+          invalidTokens.push(tokens[idx]);
+        }
+      });
+
+      if (invalidTokens.length > 0) {
+        await userDoc.ref.update({
+          fcmTokens: tokens.filter((t) => !invalidTokens.includes(t))
+        });
+      }
+    } catch (pushErr) {
+      console.error(`[checkDueExpenses] Erro ao enviar push para usuário ${userId}:`, pushErr.message);
     }
   }
 
