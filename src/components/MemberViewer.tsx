@@ -1,8 +1,16 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Member, Expense } from '../types';
 import { sendSafeNotification } from '../utils/notifications';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, auth, handleFirestoreError, OperationType } from '../firebase';
+// ⚠️ Se '../firebase' hoje não exporta `auth`, adicione esse export lá
+// (é o mesmo objeto retornado por getAuth(app), provavelmente já usado
+// em outro lugar do projeto, como no Login.tsx ou App.tsx).
 import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { signInWithCustomToken } from 'firebase/auth';
+
+// URL da função serverless (Vercel) que valida o shareToken e emite o token
+// de autenticação real. Troque pelo domínio da sua implantação na Vercel.
+const MINT_TOKEN_ENDPOINT = 'https://SEU-PROJETO.vercel.app/api/mint-member-token';
 import { 
   ShieldCheck, 
   Calendar, 
@@ -304,19 +312,28 @@ export default function MemberViewer({
     setLoading(true);
     setError(null);
 
-    // 1. Fetch the member document with the matching shareToken
+    // 1. Troca o shareToken por uma autenticação real (invisível para a
+    //    pessoa) via endpoint serverless. Isso é o que permite às regras do
+    //    Firestore verificar de fato que ela tem o token certo, em vez de
+    //    confiar apenas no filtro da consulta do client.
     const fetchMember = async () => {
-      const qMembers = query(collection(db, 'members'), where('shareToken', '==', shareToken));
       try {
-        const snap = await getDocs(qMembers);
-        if (snap.empty) {
+        const resp = await fetch(MINT_TOKEN_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shareToken })
+        });
+
+        if (!resp.ok) {
           setError("Link de compartilhamento inválido ou expirado.");
           setLoading(false);
           return;
         }
-        
-        const mDoc = snap.docs[0];
-        const mData = { id: mDoc.id, ...mDoc.data() } as Member;
+
+        const { customToken, member: memberPayload } = await resp.json();
+        await signInWithCustomToken(auth, customToken);
+
+        const mData = { id: memberPayload.id, ...memberPayload } as Member;
         setMember(mData);
 
         // 2. Fetch all members in this group (to calculate split ratios correctly)
